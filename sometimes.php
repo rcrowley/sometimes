@@ -178,10 +178,10 @@ if ('cli' == php_sapi_name()) {
 		S('div', array('id' => 'everything', 'class' => 'foo'),
 			p(
 				'This is a ',
-				S('strong', array(), array('bold', true),
+				S('strong', array(), array('bold' => true),
 					'bold'
 				),
-				S('span', array(), array('bold', false),
+				S('span', array(), array('bold' => false),
 					'plain'
 				),
 				' sentence.'
@@ -189,9 +189,9 @@ if ('cli' == php_sapi_name()) {
 			p(Sd('foo'))
 		)
 	);
-	$doc->out(array('bold', true));
+	$doc->out(array('bold' => true));
 	echo "\n\n";
-	$doc->out(array('bold', false));
+	$doc->out(array('bold' => false));
 	echo "\n\n";
 
 }
