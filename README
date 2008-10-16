@@ -1,0 +1,51 @@
+NAME
+	Sometimes -- a PHP templating system
+
+SYNOPSIS
+	require_once 'sometimes.php';
+	$doc = html(head(), body(
+		h1('Sometimes!'),
+		p(array('class' => 'foo'), array('condition' => true), 'Foo bar.')
+	));
+	$doc->out(array('condition' => true));
+
+DESCRIPTION
+	A PHP templating system.  It doesn't play favorites with styles.  Do
+	whatever you like.  It supports Smarty-style set-variables-and-then-
+	include-a-template and weird templates-call-library-functions-in-place
+	styles, among surely others.
+
+	The bonus, though, is when you output HTML, DOM nodes are required to
+	meet any arbitrary criteria you set.  Some things are only for Bob?
+	Ok.  Some stuff is meant only for unauthenticated users?  Sure.  A
+	certain node is never to see the light of day?  Suit yourself.
+
+	It was inspired late one night by Rafe Colburn and takes a page or
+	three from _why's Markaby.
+
+INSTALLATION
+	It's a PHP file?
+
+	As an aside, I wish there were a good way to checkout and "mix"
+	multiple open-source projects together.  Something with symlinks
+	and .gitignore files should do the trick.
+
+DEPENDENCIES
+	PHP 5 <http://php.net/>
+
+VERSION
+	0.1
+
+DATE
+	2008-10-15
+
+AUTHOR
+	Richard Crowley <r@rcrowley.org>
+
+SEE ALSO
+	<http://rc3.org/2008/10/14/filtering-versus-conditional-logic/>
+
+LICENSE
+	This work is licensed under a Creative Commons
+	Attribution-Share Alike 3.0 Unported License
+	<http://creativecommons.org/licenses/by-sa/3.0/>
