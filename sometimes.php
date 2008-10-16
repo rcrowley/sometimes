@@ -16,10 +16,19 @@
 
 
 
+$GLOBALS['SOMETIMES_TEMPLATEDIR'] = dirname(__FILE__) . '/../templates';
+
+
+
 class Sometimes {
 
 	# Generally speaking, Sometimes structures will be loaded from a file
-	public static function load($file) { return null; }
+	#   These files are structures something like
+	#   <?php
+	#   return html(...);
+	public static function file($file) {
+		return @include "{$GLOBALS['SOMETIMES_TEMPLATEDIR']}/$file";
+	}
 
 	# For the typical use case of running a script that defines some output
 	# and then plugging that output into a template, here's a key/value store
@@ -125,6 +134,9 @@ class HTML extends Sometimes {
 # a shortcut for creating Sometimes nodes
 function S() { return new Sometimes(func_get_args()); }
 
+# A shortcut for including files
+function Sf($file) { return Sometimes::file($file); }
+
 # A shortcut for getting/setting data
 #   Sd('foo', 'bar');
 #   $foo = Sd('foo');
@@ -172,26 +184,20 @@ function td(){$a=func_get_args();array_unshift($a,'td');return new Sometimes($a)
 # A test, if run from the command line via `php sometimes.php`
 if ('cli' == php_sapi_name()) {
 
+	# For the test, use templates in this directory
+	$GLOBALS['SOMETIMES_TEMPLATEDIR'] = dirname(__FILE__);
+
+	# Set a variable expected by foo.html.php
 	Sd('foo', 'bar');
 
-	$doc = html(
-		S('div', array('id' => 'everything', 'class' => 'foo'),
-			p(
-				'This is a ',
-				S('strong', array(), array('bold' => true),
-					'bold'
-				),
-				S('span', array(), array('bold' => false),
-					'plain'
-				),
-				' sentence.'
-			),
-			p(Sd('foo'))
-		)
-	);
-	$doc->out(array('bold' => true));
+	# Include and output foo.html.php under both possible conditions
+	$doc = Sf('foo.html.php');
+	$doc ->out(array('bold' => true));
 	echo "\n\n";
-	$doc->out(array('bold' => false));
+	$doc ->out(array('bold' => false));
 	echo "\n\n";
+
+	# Safely fail to include a non-existent file
+	var_dump(Sf('does-not-exist.html.php'));
 
 }
