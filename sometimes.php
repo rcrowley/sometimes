@@ -171,9 +171,14 @@ class SometimesData extends Sometimes {
 			$this->key = false;
 		}
 	}
+	public function __toString() {
+		if (!$this->conditions_met(func_get_args())) { return; }
+		$this->bind();
+		return implode($this->content);
+	}
 	public function out() {
 		if (!$this->conditions_met(func_get_args())) { return; }
-		if ($this->key) { $this->bind(); }
+		$this->bind();
 		echo implode($this->content);
 	}
 
