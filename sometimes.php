@@ -90,8 +90,9 @@ class Sometimes {
 	public function xpath($expr) { return null; }
 
 	# Test output conditions
-	protected function conditions_met($args, $these = false) {
-		if (!$these) { $these = $this->conditions; }
+	protected function conditions_met($args, &$these = false) {
+		$recursive = is_array($these);
+		if (!$recursive) { $these = $this->conditions; }
 
 		# Explicit conditions must be met or ignored
 		if (is_array($args) && 1 == sizeof($args) && is_array($args[0])) {
@@ -108,13 +109,12 @@ class Sometimes {
 				}
 			}
 		}
-		if ($these) { return true; }
+		if ($recursive) { return true; }
 
 		# Variables implied by conditions must be set and truthy/falsey
 		foreach ($these as $k => $v) {
-			if (isset(self::$data[$k]) && (bool)self::$data[$k] != $v) {
-				return false;
-			}
+			$value = SometimesData::get($k);
+			if ((bool)$value != $v) { return false; }
 		}
 		return true;
 
