@@ -342,6 +342,7 @@ function label(){$a=func_get_args();return new Sometimes('label',$a);}
 function input(){$a=func_get_args();return new Sometimes('input',$a);}
 function textarea(){$a=func_get_args();return new Sometimes('textarea',$a);}
 function select(){$a=func_get_args();return new Sometimes('select',$a);}
+function option(){$a=func_get_args();return new Sometimes('option',$a);}
 function hr(){$a=func_get_args();return new Sometimes('hr',$a);}
 function br(){$a=func_get_args();return new Sometimes('br',$a);}
 function img(){$a=func_get_args();return new Sometimes('img',$a);}
