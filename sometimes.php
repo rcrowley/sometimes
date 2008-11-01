@@ -101,44 +101,54 @@ class Sometimes {
 	#   really useful if this is implemented
 	public function xpath($expr) { return null; }
 
-	# If this node passes the conditions, write it out
-	public function out() {
-		$conditions = array();
-		foreach (func_get_args() as $arg) {
+	# Test explicit output conditions
+	protected function explicit_conditions_met() {
+		$args = func_get_args();
+		if (1 == sizeof($args) && is_array($args[0])) { $args = $args[0]; }
+		foreach ($args as $arg) {
 			if (is_array($arg)) {
-				$conditions = array_merge($conditions, $arg);
-			} else { $conditions[] = $arg; }
-		}
-print_r($conditions);
-		$these = $this->conditions;
-
-		# Conditions explicitly specified must be met or ignored
-		#   Anything that is a real condition doesn't imply a variable
-		foreach ($conditions as $k => $v) {
-			if (isset($these[$k])) {
-				if ($these[$k] != $v) { return; }
-				unset($these[$k]);
+				if (!$this->explicit_conditions_met($arg)) { return false; }
+			} else if ($arg instanceof SometimesCondition) {
+				$k = $arg->key; $v = $arg->value;
+				if (isset($this->conditions[$k])) {
+					if ($this->conditions[$k] == $v) {
+						unset($this->conditions[$k]);
+					} else { return false; }
+				}
 			}
 		}
+		return true;
+	}
 
-		# Variables implied by conditions must be set and truthy/falsey
-		foreach ($these as $k => $v) {
-echo "\n<pre>$k: $v ", self::$data[$k], " ", (bool)self::$data[$k], "<pre>\n";
-			if (!(isset(self::$data[$k]) && (bool)self::$data[$k] != $v)) {
-				return;
+	# Test variables implied by conditions are set and truthy/falsey
+	protected function variable_conditions_met() {
+		foreach ($this->conditions as $k => $v) {
+			if (isset(self::$data[$k]) && (bool)self::$data[$k] != $v) {
+				return false;
 			}
 		}
+		return true;
+	}
 
+	# If this node passes the conditions, write it out
+	protected function _out() {
+		$conditions = func_get_args();
+		if (!$this->explicit_conditions_met($conditions)) { return; }
+		if (!$this->variable_conditions_met()) { return; }
 		echo "<{$this->name}";
 		foreach ($this->attrs as $k => $v) { echo " $k=\"$v\""; }
 		if (sizeof($this->content)) {
 			echo '>';
 			foreach ($this->content as $c) {
-				if ($c instanceof Sometimes) { echo $c->out($conditions); }
+				if ($c instanceof Sometimes) { echo $c->_out($conditions); }
 				else { echo $c; }
 			}
 			echo "</{$this->name}>";
 		} else { echo ' />'; }
+	}
+	public function out() {
+		$this->_out(func_get_args());
+		# TODO: Somehow destroy myself or at least prevent further output
 	}
 
 }
@@ -177,10 +187,10 @@ class HTML extends Sometimes {
 #   It prints nothing itself but controls the display of everything below
 #   TODO: Use this for looping as well as conditions
 class Nil extends Sometimes {
-	public function out() {
+	protected function _out() {
 		$conditions = func_get_args();
 		foreach ($this->content as $c) {
-			if ($c instanceof Sometimes) { echo $c->out($conditions); }
+			if ($c instanceof Sometimes) { echo $c->_out($conditions); }
 			else { echo $c; }
 		}
 	}
@@ -204,13 +214,18 @@ function Sl($file = false, $layout = 'layout.html.php') {
 	} else { return Sf(Sd('_layout')); }
 }
 
+# TODO: A shortcut for output
+function Sout() {}
+
 # A shortcut for getting/setting data
 #   Sd('foo', 'bar');
 #   $foo = Sd('foo');
 function Sd() { return Sometimes::data(func_get_args()); }
 
 # A shortcut for creating a condition
-function Sc($name, $value) { return new SometimesCondition($name, $value); }
+function Sc($name, $value = true) {
+	return new SometimesCondition($name, $value);
+}
 
 # Take the S(...) shortcut one step further
 function html() { return new HTML(func_get_args()); }
@@ -268,10 +283,11 @@ if ('cli' == php_sapi_name()) {
 	Sd('foo', 'bar');
 
 	# Include and output foo.html.php under both possible conditions
-	$doc = Sf('foo.html.php');
-	$doc ->out(array('bold' => true));
+	$doc1 = Sf('foo.html.php');
+	$doc1 ->out(Sc('bold'));
 	echo "\n\n";
-	$doc ->out(array('bold' => false));
+	$doc2 = Sf('foo.html.php');
+	$doc2 ->out(Sc('bold', false));
 	echo "\n\n";
 
 	# Safely fail to include a non-existent file

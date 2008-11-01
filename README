@@ -5,9 +5,9 @@ SYNOPSIS
 	require_once 'sometimes.php';
 	$doc = html(head(), body(
 		h1('Sometimes!'),
-		p(array('class' => 'foo'), array('condition' => true), 'Foo bar.')
+		p(array('class' => 'foo'), Sc('condition', true), 'Foo bar.')
 	));
-	$doc->out(array('condition' => true));
+	$doc->out(Sc('condition', true));
 
 DESCRIPTION
 	A PHP templating system.  It doesn't play favorites with styles.  Do
