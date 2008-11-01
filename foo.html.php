@@ -11,6 +11,9 @@ return html(
 			),
 			' sentence.'
 		),
-		p(Sd('foo'))
+		p(Sd('foo')),
+		ul(Sforeach(array('asdf' => 'qwerty', 'foo' => 'bar', 'hooah' => 'woo'),
+			li(Sd('_k'), ': ', Sd('_v'))
+		))
 	)
 );

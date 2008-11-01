@@ -25,7 +25,6 @@ $GLOBALS['SOMETIMES_TEMPLATEDIR'] = dirname(__FILE__) . '/../templates';
 
 
 
-
 class Sometimes {
 
 	# Generally speaking, Sometimes structures will be loaded from a file
@@ -34,21 +33,6 @@ class Sometimes {
 	#   return html(...);
 	public static function file($file) {
 		return include "{$GLOBALS['SOMETIMES_TEMPLATEDIR']}/$file";
-	}
-
-	# For the typical use case of running a script that defines some output
-	# and then plugging that output into a template, here's a key/value store
-	#   It is also accessible by the Sd(...) shortcut
-	protected static $data = array();
-	public static function data($args) {
-		switch (sizeof($args)) {
-			case 1:
-				if (isset(self::$data[$args[0]])) {
-					return self::$data[$args[0]];
-				} else { return null; }
-			break;
-			case 2: self::$data[$args[0]] = $args[1]; break;
-		}
 	}
 
 	protected $name = '___';
@@ -74,6 +58,13 @@ class Sometimes {
 			}
 			#else if ($arg instanceof Sometimes) {  }
 			else { $this->content[] = $arg; }
+		}
+	}
+
+	# Make Sometimes objects deep-clonable
+	public function __clone() {
+		foreach ($this->content as $i => $c) {
+			if ($c instanceof Sometimes) { $this->content[$i] = clone $c; }
 		}
 	}
 
@@ -115,9 +106,8 @@ class Sometimes {
 			} else if ($arg instanceof SometimesCondition) {
 				$k = $arg->key; $v = $arg->value;
 				if (isset($these[$k])) {
-					if ($these[$k] == $v) {
-						unset($these[$k]);
-					} else { return false; }
+					if ($these[$k] == $v) { unset($these[$k]); }
+					else { return false; }
 				}
 			}
 		}
@@ -133,10 +123,21 @@ class Sometimes {
 
 	}
 
+	# Bind child SometimesData nodes
+	#   TODO: This gets called way way too often because it traverses the
+	#   tree every time it is called and it's called for every node
+	#     Either need $bound flags or explicit call in Sout()
+	public function bind() {
+		foreach ($this->content as $c) {
+			if ($c instanceof Sometimes) { $c->bind(); }
+		}
+	}
+
 	# If this node passes the conditions, write it out
-	protected function out() {
+	public function out() {
 		$conditions = func_get_args();
 		if (!$this->conditions_met($conditions)) { return; }
+		$this->bind();
 		echo "<{$this->name}";
 		foreach ($this->attrs as $k => $v) { echo " $k=\"$v\""; }
 		if (sizeof($this->content)) {
@@ -147,6 +148,44 @@ class Sometimes {
 			}
 			echo "</{$this->name}>";
 		} else { echo ' />'; }
+	}
+
+}
+
+# A late-binding data node
+class SometimesData extends Sometimes {
+
+	# Static members to implement a basic key/value store
+	protected static $data = array();
+	public static function get($k) {
+		if (isset(self::$data[$k])) { return self::$data[$k]; }
+		else { return null; }
+	}
+	public static function set($k, $v) {
+		self::$data[$k] = $v;
+#echo "{{$k}: ", self::$data[$k], "}";
+	}
+	public static function delete($k) { unset(self::$data[$k]); }
+
+	# A SometimesData node has only a key that can be bound at any time
+	# to a value, making it essentially the same as a text node
+	protected $key;
+	public function __construct($key) {
+		$this->key = $key;
+#echo "{SometimesData::__construct $key {$this->key}}";
+	}
+	public function bind() {
+#echo "{SometimesData::bind ", ($this->key ? $this->key : "false"), "}";
+		if ($this->key) {
+			$this->content = array(SometimesData::get($this->key));
+			$this->key = false;
+		}
+	}
+	public function out() {
+#echo "{SometimesData::out ", ($this->key ? $this->key : "false"), " {$this->content}}";
+		if (!$this->conditions_met(func_get_args())) { return; }
+		if ($this->key) { $this->bind(); }
+		echo implode($this->content);
 	}
 
 }
@@ -162,6 +201,8 @@ class SometimesCondition {
 		if (2 == sizeof($args)) { $this->value = (bool)$args[1]; }
 	}
 }
+
+
 
 # The root <html> element has some special sauce and a shortcut like other tags
 class HTML extends Sometimes {
@@ -183,9 +224,9 @@ class HTML extends Sometimes {
 
 # We also need a nil element that can act as an invisible parent
 #   It prints nothing itself but controls the display of everything below
-#   TODO: Use this for looping as well as conditions
 class Nil extends Sometimes {
-	protected function out() {
+	public function __construct($args) { parent::__construct('___', $args); }
+	public function out() {
 		$conditions = func_get_args();
 		if (!$this->conditions_met($conditions)) { return; }
 		foreach ($this->content as $c) {
@@ -217,28 +258,68 @@ function Sl($file = false, $layout = 'layout.html.php') {
 #   Outputs Sometimes objects with all passed SometimesConditions objects
 function Sout() {
 	$args = func_get_args();
-	$out = array();
+	$sometimes = array();
 	$conditions = array();
 	foreach ($args as $arg) {
-		if ($arg instanceof Sometimes) { $out[] = $arg; }
+		if ($arg instanceof Sometimes) { $sometimes[] = $arg; }
 		else if ($arg instanceof SometimesCondition) { $conditions[] = $arg; }
 	}
-	foreach ($out as $o) { $o->out($conditions); }
+	foreach ($sometimes as $s) { $s->out($conditions); }
 }
 
 # A shortcut for getting/setting data
-#   Sd('foo', 'bar');
-#   $foo = Sd('foo');
-function Sd() { return Sometimes::data(func_get_args()); }
+#   With two arguments, set some data
+#     Sd('foo', 'bar');
+#   With one argument, create a SometimesData node
+#     $sometimes = Sd('foo');
+function Sd() {
+	$args = func_get_args();
+	switch (sizeof($args)) {
+		case 1: return new SometimesData($args[0]); break;
+		case 2: SometimesData::set($args[0], $args[1]); break;
+	}
+}
 
 # A shortcut for creating a condition
 function Sc($name, $value = true) {
 	return new SometimesCondition($name, $value);
 }
 
+# Control flow
+function Snil() { return new Nil(func_get_args()); }
+function Sif() { return new Nil(func_get_args()); }
+function Sforeach() {
+	$args = func_get_args();
+	$arr = array();
+	$sometimes = array();
+	$keys = array();
+	foreach ($args as $arg) {
+		if (is_array($arg)) { $arr = array_merge($arr, $arg); }
+		else if ($arg instanceof Sometimes) { $sometimes[] = $arg; }
+		else if ($arg instanceof SometimesCondition) { $sometimes[] = $arg; }
+		else { $keys[] = $arg; }
+	}
+	$sometimes = new Nil($sometimes);
+	switch (sizeof($keys)) {
+		case 0: $key = '_k'; $value = '_v'; break;
+		case 1: $key = '_k'; $value = $keys[0]; break;
+		default: $key = $keys[0]; $value = $keys[1]; break;
+	}
+	$out = array();
+	foreach ($arr as $k => $v) {
+		SometimesData::set($key, $k);
+		SometimesData::set($value, $v);
+		$s = clone $sometimes;
+		$s->bind();
+		$out[] = $s;
+	}
+	SometimesData::delete($key);
+	SometimesData::delete($value);
+	return new Nil($out);
+}
+
 # Take the S(...) shortcut one step further
-function html() { return new HTML(func_get_args()); }
-function nil() { return new Nil(func_get_args()); }
+function html(){return new HTML(func_get_args());}
 function head(){$a=func_get_args();return new Sometimes('head',$a);}
 function title(){$a=func_get_args();return new Sometimes('title',$a);}
 function style(){$a=func_get_args();return new Sometimes('style',$a);}
