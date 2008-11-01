@@ -3,11 +3,12 @@ NAME
 
 SYNOPSIS
 	require_once 'sometimes.php';
+	Sd('foo', 'bar');
 	$doc = html(head(), body(
 		h1('Sometimes!'),
-		p(array('class' => 'foo'), Sc('condition', true), 'Foo bar.')
+		p(array('class' => 'foo'), Sc('condition', true), 'Foo ', Sd('foo'))
 	));
-	$doc->out(Sc('condition', true));
+	Sout($doc, Sc('condition', true));
 
 DESCRIPTION
 	A PHP templating system.  It doesn't play favorites with styles.  Do
