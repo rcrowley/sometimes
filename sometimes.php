@@ -101,54 +101,52 @@ class Sometimes {
 	#   really useful if this is implemented
 	public function xpath($expr) { return null; }
 
-	# Test explicit output conditions
-	protected function explicit_conditions_met() {
-		$args = func_get_args();
-		if (1 == sizeof($args) && is_array($args[0])) { $args = $args[0]; }
+	# Test output conditions
+	protected function conditions_met($args, $these = false) {
+		if (!$these) { $these = $this->conditions; }
+
+		# Explicit conditions must be met or ignored
+		if (is_array($args) && 1 == sizeof($args) && is_array($args[0])) {
+			$args = $args[0];
+		}
 		foreach ($args as $arg) {
 			if (is_array($arg)) {
-				if (!$this->explicit_conditions_met($arg)) { return false; }
+				if (!$this->conditions_met($arg, $these)) { return false; }
 			} else if ($arg instanceof SometimesCondition) {
 				$k = $arg->key; $v = $arg->value;
-				if (isset($this->conditions[$k])) {
-					if ($this->conditions[$k] == $v) {
-						unset($this->conditions[$k]);
+				if (isset($these[$k])) {
+					if ($these[$k] == $v) {
+						unset($these[$k]);
 					} else { return false; }
 				}
 			}
 		}
-		return true;
-	}
+		if ($these) { return true; }
 
-	# Test variables implied by conditions are set and truthy/falsey
-	protected function variable_conditions_met() {
-		foreach ($this->conditions as $k => $v) {
+		# Variables implied by conditions must be set and truthy/falsey
+		foreach ($these as $k => $v) {
 			if (isset(self::$data[$k]) && (bool)self::$data[$k] != $v) {
 				return false;
 			}
 		}
 		return true;
+
 	}
 
 	# If this node passes the conditions, write it out
-	protected function _out() {
+	protected function out() {
 		$conditions = func_get_args();
-		if (!$this->explicit_conditions_met($conditions)) { return; }
-		if (!$this->variable_conditions_met()) { return; }
+		if (!$this->conditions_met($conditions)) { return; }
 		echo "<{$this->name}";
 		foreach ($this->attrs as $k => $v) { echo " $k=\"$v\""; }
 		if (sizeof($this->content)) {
 			echo '>';
 			foreach ($this->content as $c) {
-				if ($c instanceof Sometimes) { echo $c->_out($conditions); }
+				if ($c instanceof Sometimes) { echo $c->out($conditions); }
 				else { echo $c; }
 			}
 			echo "</{$this->name}>";
 		} else { echo ' />'; }
-	}
-	public function out() {
-		$this->_out(func_get_args());
-		# TODO: Somehow destroy myself or at least prevent further output
 	}
 
 }
@@ -187,10 +185,11 @@ class HTML extends Sometimes {
 #   It prints nothing itself but controls the display of everything below
 #   TODO: Use this for looping as well as conditions
 class Nil extends Sometimes {
-	protected function _out() {
+	protected function out() {
 		$conditions = func_get_args();
+		if (!$this->conditions_met($conditions)) { return; }
 		foreach ($this->content as $c) {
-			if ($c instanceof Sometimes) { echo $c->_out($conditions); }
+			if ($c instanceof Sometimes) { echo $c->out($conditions); }
 			else { echo $c; }
 		}
 	}
@@ -214,8 +213,18 @@ function Sl($file = false, $layout = 'layout.html.php') {
 	} else { return Sf(Sd('_layout')); }
 }
 
-# TODO: A shortcut for output
-function Sout() {}
+# A shortcut for output
+#   Outputs Sometimes objects with all passed SometimesConditions objects
+function Sout() {
+	$args = func_get_args();
+	$out = array();
+	$conditions = array();
+	foreach ($args as $arg) {
+		if ($arg instanceof Sometimes) { $out[] = $arg; }
+		else if ($arg instanceof SometimesCondition) { $conditions[] = $arg; }
+	}
+	foreach ($out as $o) { $o->out($conditions); }
+}
 
 # A shortcut for getting/setting data
 #   Sd('foo', 'bar');
@@ -283,11 +292,10 @@ if ('cli' == php_sapi_name()) {
 	Sd('foo', 'bar');
 
 	# Include and output foo.html.php under both possible conditions
-	$doc1 = Sf('foo.html.php');
-	$doc1 ->out(Sc('bold'));
+	$doc = Sf('foo.html.php');
+	Sout($doc, Sc('bold'));
 	echo "\n\n";
-	$doc2 = Sf('foo.html.php');
-	$doc2 ->out(Sc('bold', false));
+	Sout($doc, Sc('bold', false));
 	echo "\n\n";
 
 	# Safely fail to include a non-existent file
