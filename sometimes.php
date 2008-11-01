@@ -14,10 +14,7 @@
 # It would also be nice to be able to toggle between a tag and a string
 # with the conditionals - see the <strong>/<span> awkwardness in the test
 
-# We can create "automatic conditionals" set to true for every variable
-# set with Sd(...)
-
-# How to do looping?
+# Can cache the HTML output with <?= Sd('foo'); ?\> inside
 
 
 
