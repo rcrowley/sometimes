@@ -243,9 +243,9 @@ function Sf($file) { return Sometimes::file($file); }
 #   Layouts should call Sl() with no arguments to embed the $file
 function Sl($file = false, $layout = 'layout.html.php') {
 	if ($file) {
-		Sd('_layout', $file);
+		SometimesData::set('_layout', Sf($file));
 		return Sf($layout);
-	} else { return Sf(Sd('_layout')); }
+	} else { return SometimesData::get('_layout'); }
 }
 
 # A shortcut for output
