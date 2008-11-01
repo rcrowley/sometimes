@@ -124,9 +124,6 @@ class Sometimes {
 	}
 
 	# Bind child SometimesData nodes
-	#   TODO: This gets called way way too often because it traverses the
-	#   tree every time it is called and it's called for every node
-	#     Either need $bound flags or explicit call in Sout()
 	public function bind() {
 		foreach ($this->content as $c) {
 			if ($c instanceof Sometimes) { $c->bind(); }
@@ -137,7 +134,6 @@ class Sometimes {
 	public function out() {
 		$conditions = func_get_args();
 		if (!$this->conditions_met($conditions)) { return; }
-		$this->bind();
 		echo "<{$this->name}";
 		foreach ($this->attrs as $k => $v) { echo " $k=\"$v\""; }
 		if (sizeof($this->content)) {
@@ -163,7 +159,6 @@ class SometimesData extends Sometimes {
 	}
 	public static function set($k, $v) {
 		self::$data[$k] = $v;
-#echo "{{$k}: ", self::$data[$k], "}";
 	}
 	public static function delete($k) { unset(self::$data[$k]); }
 
@@ -172,17 +167,14 @@ class SometimesData extends Sometimes {
 	protected $key;
 	public function __construct($key) {
 		$this->key = $key;
-#echo "{SometimesData::__construct $key {$this->key}}";
 	}
 	public function bind() {
-#echo "{SometimesData::bind ", ($this->key ? $this->key : "false"), "}";
 		if ($this->key) {
 			$this->content = array(SometimesData::get($this->key));
 			$this->key = false;
 		}
 	}
 	public function out() {
-#echo "{SometimesData::out ", ($this->key ? $this->key : "false"), " {$this->content}}";
 		if (!$this->conditions_met(func_get_args())) { return; }
 		if ($this->key) { $this->bind(); }
 		echo implode($this->content);
