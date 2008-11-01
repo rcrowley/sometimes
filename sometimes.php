@@ -14,9 +14,15 @@
 # It would also be nice to be able to toggle between a tag and a string
 # with the conditionals - see the <strong>/<span> awkwardness in the test
 
+# We can create "automatic conditionals" set to true for every variable
+# set with Sd(...)
+
+# How to do looping?
+
 
 
 $GLOBALS['SOMETIMES_TEMPLATEDIR'] = dirname(__FILE__) . '/../templates';
+
 
 
 
@@ -27,7 +33,7 @@ class Sometimes {
 	#   <?php
 	#   return html(...);
 	public static function file($file) {
-		return @include "{$GLOBALS['SOMETIMES_TEMPLATEDIR']}/$file";
+		return include "{$GLOBALS['SOMETIMES_TEMPLATEDIR']}/$file";
 	}
 
 	# For the typical use case of running a script that defines some output
@@ -36,7 +42,11 @@ class Sometimes {
 	protected static $data = array();
 	public static function data($args) {
 		switch (sizeof($args)) {
-			case 1: return self::$data[$args[0]]; break;
+			case 1:
+				if (isset(self::$data[$args[0]])) {
+					return self::$data[$args[0]];
+				} else { return null; }
+			break;
 			case 2: self::$data[$args[0]] = $args[1]; break;
 		}
 	}
@@ -48,18 +58,23 @@ class Sometimes {
 
 	# A Sometimes node has some attributes and some content
 	#   The first argument is the name of the node ('h1', 'div', etc)
-	#   The second and third, if arrays, are attributes and conditions
-	#   Remaining arguments are child Sometimes elements or string content
-	public function __construct($args) {
-		$this->name = array_shift($args);
-		$arg = array_shift($args);
-		if (is_array($arg)) {
-			$this->attrs = $arg;
-			$arg = array_shift($args);
-			if (is_array($arg)) { $this->conditions = $arg; }
-			else if ($arg) { $this->content[] = $arg; }
-		} else if ($arg) { $this->content[] = $arg; }
-		while ($arg = array_shift($args)) { $this->content[] = $arg; }
+	#   The second is an array, intended to be func_get_args() from a wrapper
+	#     Elements are dealt with based on their type
+	#       Arrays are attributes
+	#       SometimesCondition objects are conditions
+	#       Sometimes objects are child nodes
+	#       Anything else is a child text node
+	public function __construct($name, $args) {
+		$this->name = $name;
+		foreach ($args as $arg) {
+			if (is_array($arg)) {
+				$this->attrs = array_merge($this->attrs, $arg);
+			} else if ($arg instanceof SometimesCondition) {
+				$this->conditions[$arg->key] = $arg->value;
+			}
+			#else if ($arg instanceof Sometimes) {  }
+			else { $this->content[] = $arg; }
+		}
 	}
 
 	# Accessors for this node's attributes and conditions
@@ -87,16 +102,35 @@ class Sometimes {
 	public function xpath($expr) { return null; }
 
 	# If this node passes the conditions, write it out
-	public function out($conditions = array()) {
+	public function out() {
+		$conditions = array();
+		foreach (func_get_args() as $arg) {
+			if (is_array($arg)) {
+				$conditions = array_merge($conditions, $arg);
+			} else { $conditions[] = $arg; }
+		}
+print_r($conditions);
+		$these = $this->conditions;
+
+		# Conditions explicitly specified must be met or ignored
+		#   Anything that is a real condition doesn't imply a variable
 		foreach ($conditions as $k => $v) {
-			if (isset($this->conditions[$k]) && $this->conditions[$k] != $v) {
+			if (isset($these[$k])) {
+				if ($these[$k] != $v) { return; }
+				unset($these[$k]);
+			}
+		}
+
+		# Variables implied by conditions must be set and truthy/falsey
+		foreach ($these as $k => $v) {
+echo "\n<pre>$k: $v ", self::$data[$k], " ", (bool)self::$data[$k], "<pre>\n";
+			if (!(isset(self::$data[$k]) && (bool)self::$data[$k] != $v)) {
 				return;
 			}
 		}
+
 		echo "<{$this->name}";
-		foreach ($this->attrs as $k => $v) {
-			echo " $k=\"", htmlentities($v), '"';
-		}
+		foreach ($this->attrs as $k => $v) { echo " $k=\"$v\""; }
 		if (sizeof($this->content)) {
 			echo '>';
 			foreach ($this->content as $c) {
@@ -109,11 +143,22 @@ class Sometimes {
 
 }
 
+# Encapsulate a condition in a distinct way
+class SometimesCondition {
+	public $key = '___';
+	public $value = true;
+	public function __construct() {
+		$args = func_get_args();
+		if (!sizeof($args)) { return; }
+		$this->key = $args[0];
+		if (2 == sizeof($args)) { $this->value = (bool)$args[1]; }
+	}
+}
+
 # The root <html> element has some special sauce and a shortcut like other tags
 class HTML extends Sometimes {
 	public function __construct($args) {
-		array_unshift($args, 'html');
-		parent::__construct($args);
+		parent::__construct('html', $args);
 		if (!isset($this->attrs['xmlns'])) {
 			$this->attrs['xmlns'] = 'http://www.w3.org/1999/xhtml';
 		}
@@ -121,10 +166,23 @@ class HTML extends Sometimes {
 			$this->attrs['xml:lang'] = 'en';
 		}
 	}
-	public function out($conditions = array()) {
+	public function out() {
 		echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" ',
 			'"http://w3.org/TR/xhtml1/DTD/xhtml1.1.dtd">', "\n";
-		parent::out($conditions);
+		parent::out(func_get_args());
+	}
+}
+
+# We also need a nil element that can act as an invisible parent
+#   It prints nothing itself but controls the display of everything below
+#   TODO: Use this for looping as well as conditions
+class Nil extends Sometimes {
+	public function out() {
+		$conditions = func_get_args();
+		foreach ($this->content as $c) {
+			if ($c instanceof Sometimes) { echo $c->out($conditions); }
+			else { echo $c; }
+		}
 	}
 }
 
@@ -132,52 +190,71 @@ class HTML extends Sometimes {
 
 # The "new" keyword is stupid and doesn't mean anything in PHP, so we make
 # a shortcut for creating Sometimes nodes
-function S() { return new Sometimes(func_get_args()); }
+function S($name, $args) { return new Sometimes($name, $args); }
 
 # A shortcut for including files
 function Sf($file) { return Sometimes::file($file); }
+
+# Layouts are a nested set of files
+#   Layouts should call Sl() with no arguments to embed the $file
+function Sl($file = false, $layout = 'layout.html.php') {
+	if ($file) {
+		Sd('_layout', $file);
+		return Sf($layout);
+	} else { return Sf(Sd('_layout')); }
+}
 
 # A shortcut for getting/setting data
 #   Sd('foo', 'bar');
 #   $foo = Sd('foo');
 function Sd() { return Sometimes::data(func_get_args()); }
 
-# Take the S(...) shortcut one step further and define shortcuts for every
-# (common) HTML tag
+# A shortcut for creating a condition
+function Sc($name, $value) { return new SometimesCondition($name, $value); }
+
+# Take the S(...) shortcut one step further
 function html() { return new HTML(func_get_args()); }
-function head(){$a=func_get_args();array_unshift($a,'head');return new Sometimes($a);}
-function title(){$a=func_get_args();array_unshift($a,'title');return new Sometimes($a);}
-function style(){$a=func_get_args();array_unshift($a,'style');return new Sometimes($a);}
-function script(){$a=func_get_args();array_unshift($a,'script');return new Sometimes($a);}
-function meta(){$a=func_get_args();array_unshift($a,'meta');return new Sometimes($a);}
-function body(){$a=func_get_args();array_unshift($a,'body');return new Sometimes($a);}
-function div(){$a=func_get_args();array_unshift($a,'div');return new Sometimes($a);}
-function h1(){$a=func_get_args();array_unshift($a,'h1');return new Sometimes($a);}
-function h2(){$a=func_get_args();array_unshift($a,'h2');return new Sometimes($a);}
-function h3(){$a=func_get_args();array_unshift($a,'h3');return new Sometimes($a);}
-function h4(){$a=func_get_args();array_unshift($a,'h4');return new Sometimes($a);}
-function h5(){$a=func_get_args();array_unshift($a,'h5');return new Sometimes($a);}
-function h6(){$a=func_get_args();array_unshift($a,'h6');return new Sometimes($a);}
-function p(){$a=func_get_args();array_unshift($a,'p');return new Sometimes($a);}
-function pre(){$a=func_get_args();array_unshift($a,'pre');return new Sometimes($a);}
-function span(){$a=func_get_args();array_unshift($a,'span');return new Sometimes($a);}
-function strong(){$a=func_get_args();array_unshift($a,'strong');return new Sometimes($a);}
-function em(){$a=func_get_args();array_unshift($a,'em');return new Sometimes($a);}
-function big(){$a=func_get_args();array_unshift($a,'big');return new Sometimes($a);}
-function small(){$a=func_get_args();array_unshift($a,'small');return new Sometimes($a);}
-function tt(){$a=func_get_args();array_unshift($a,'tt');return new Sometimes($a);}
-function code(){$a=func_get_args();array_unshift($a,'code');return new Sometimes($a);}
-function kbd(){$a=func_get_args();array_unshift($a,'kbd');return new Sometimes($a);}
-function del(){$a=func_get_args();array_unshift($a,'del');return new Sometimes($a);}
-function ul(){$a=func_get_args();array_unshift($a,'ul');return new Sometimes($a);}
-function ol(){$a=func_get_args();array_unshift($a,'ol');return new Sometimes($a);}
-function li(){$a=func_get_args();array_unshift($a,'li');return new Sometimes($a);}
-function hr(){$a=func_get_args();array_unshift($a,'hr');return new Sometimes($a);}
-function img(){$a=func_get_args();array_unshift($a,'img');return new Sometimes($a);}
-function table(){$a=func_get_args();array_unshift($a,'table');return new Sometimes($a);}
-function tr(){$a=func_get_args();array_unshift($a,'tr');return new Sometimes($a);}
-function th(){$a=func_get_args();array_unshift($a,'th');return new Sometimes($a);}
-function td(){$a=func_get_args();array_unshift($a,'td');return new Sometimes($a);}
+function nil() { return new Nil(func_get_args()); }
+function head(){$a=func_get_args();return new Sometimes('head',$a);}
+function title(){$a=func_get_args();return new Sometimes('title',$a);}
+function style(){$a=func_get_args();return new Sometimes('style',$a);}
+function script(){$a=func_get_args();return new Sometimes('script',$a);}
+function meta(){$a=func_get_args();return new Sometimes('meta',$a);}
+function body(){$a=func_get_args();return new Sometimes('body',$a);}
+function div(){$a=func_get_args();return new Sometimes('div',$a);}
+function h1(){$a=func_get_args();return new Sometimes('h1',$a);}
+function h2(){$a=func_get_args();return new Sometimes('h2',$a);}
+function h3(){$a=func_get_args();return new Sometimes('h3',$a);}
+function h4(){$a=func_get_args();return new Sometimes('h4',$a);}
+function h5(){$a=func_get_args();return new Sometimes('h5',$a);}
+function h6(){$a=func_get_args();return new Sometimes('h6',$a);}
+function p(){$a=func_get_args();return new Sometimes('p',$a);}
+function pre(){$a=func_get_args();return new Sometimes('pre',$a);}
+function a(){$a=func_get_args();return new Sometimes('a',$a);}
+function span(){$a=func_get_args();return new Sometimes('span',$a);}
+function strong(){$a=func_get_args();return new Sometimes('strong',$a);}
+function em(){$a=func_get_args();return new Sometimes('em',$a);}
+function big(){$a=func_get_args();return new Sometimes('big',$a);}
+function small(){$a=func_get_args();return new Sometimes('small',$a);}
+function tt(){$a=func_get_args();return new Sometimes('tt',$a);}
+function code(){$a=func_get_args();return new Sometimes('code',$a);}
+function kbd(){$a=func_get_args();return new Sometimes('kbd',$a);}
+function del(){$a=func_get_args();return new Sometimes('del',$a);}
+function ul(){$a=func_get_args();return new Sometimes('ul',$a);}
+function ol(){$a=func_get_args();return new Sometimes('ol',$a);}
+function li(){$a=func_get_args();return new Sometimes('li',$a);}
+function form(){$a=func_get_args();return new Sometimes('form',$a);}
+function label(){$a=func_get_args();return new Sometimes('label',$a);}
+function input(){$a=func_get_args();return new Sometimes('input',$a);}
+function textarea(){$a=func_get_args();return new Sometimes('textarea',$a);}
+function select(){$a=func_get_args();return new Sometimes('select',$a);}
+function hr(){$a=func_get_args();return new Sometimes('hr',$a);}
+function br(){$a=func_get_args();return new Sometimes('br',$a);}
+function img(){$a=func_get_args();return new Sometimes('img',$a);}
+function table(){$a=func_get_args();return new Sometimes('table',$a);}
+function tr(){$a=func_get_args();return new Sometimes('tr',$a);}
+function th(){$a=func_get_args();return new Sometimes('th',$a);}
+function td(){$a=func_get_args();return new Sometimes('td',$a);}
 
 
 

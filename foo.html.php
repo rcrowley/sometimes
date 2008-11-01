@@ -1,12 +1,12 @@
 <?php
 return html(
-	S('div', array('id' => 'everything', 'class' => 'foo'),
+	div(array('id' => 'everything', 'class' => 'foo'),
 		p(
 			'This is a ',
-			S('strong', array(), array('bold' => true),
+			strong(Sc('bold', true),
 				'bold'
 			),
-			S('span', array(), array('bold' => false),
+			span(Sc('bold', false),
 				'plain'
 			),
 			' sentence.'
