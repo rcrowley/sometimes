@@ -198,25 +198,7 @@ class SometimesCondition {
 
 
 
-# The root <html> element has some special sauce and a shortcut like other tags
-class HTML extends Sometimes {
-	public function __construct($args) {
-		parent::__construct('html', $args);
-		if (!isset($this->attrs['xmlns'])) {
-			$this->attrs['xmlns'] = 'http://www.w3.org/1999/xhtml';
-		}
-		if (!isset($this->attrs['xml:lang'])) {
-			$this->attrs['xml:lang'] = 'en';
-		}
-	}
-	public function out() {
-		echo '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" ',
-			'"http://w3.org/TR/xhtml1/DTD/xhtml1.1.dtd">', "\n";
-		parent::out(func_get_args());
-	}
-}
-
-# We also need a nil element that can act as an invisible parent
+# We need a nil element that can act as an invisible parent
 #   It prints nothing itself but controls the display of everything below
 class Nil extends Sometimes {
 	public function __construct($args) { parent::__construct('___', $args); }
@@ -311,50 +293,6 @@ function Sforeach() {
 	SometimesData::delete($value);
 	return new Nil($out);
 }
-
-# Take the S(...) shortcut one step further
-function html(){return new HTML(func_get_args());}
-function head(){$a=func_get_args();return new Sometimes('head',$a);}
-function title(){$a=func_get_args();return new Sometimes('title',$a);}
-function style(){$a=func_get_args();return new Sometimes('style',$a);}
-function script(){$a=func_get_args();return new Sometimes('script',$a);}
-function meta(){$a=func_get_args();return new Sometimes('meta',$a);}
-function body(){$a=func_get_args();return new Sometimes('body',$a);}
-function div(){$a=func_get_args();return new Sometimes('div',$a);}
-function h1(){$a=func_get_args();return new Sometimes('h1',$a);}
-function h2(){$a=func_get_args();return new Sometimes('h2',$a);}
-function h3(){$a=func_get_args();return new Sometimes('h3',$a);}
-function h4(){$a=func_get_args();return new Sometimes('h4',$a);}
-function h5(){$a=func_get_args();return new Sometimes('h5',$a);}
-function h6(){$a=func_get_args();return new Sometimes('h6',$a);}
-function p(){$a=func_get_args();return new Sometimes('p',$a);}
-function pre(){$a=func_get_args();return new Sometimes('pre',$a);}
-function a(){$a=func_get_args();return new Sometimes('a',$a);}
-function span(){$a=func_get_args();return new Sometimes('span',$a);}
-function strong(){$a=func_get_args();return new Sometimes('strong',$a);}
-function em(){$a=func_get_args();return new Sometimes('em',$a);}
-function big(){$a=func_get_args();return new Sometimes('big',$a);}
-function small(){$a=func_get_args();return new Sometimes('small',$a);}
-function tt(){$a=func_get_args();return new Sometimes('tt',$a);}
-function code(){$a=func_get_args();return new Sometimes('code',$a);}
-function kbd(){$a=func_get_args();return new Sometimes('kbd',$a);}
-function del(){$a=func_get_args();return new Sometimes('del',$a);}
-function ul(){$a=func_get_args();return new Sometimes('ul',$a);}
-function ol(){$a=func_get_args();return new Sometimes('ol',$a);}
-function li(){$a=func_get_args();return new Sometimes('li',$a);}
-function form(){$a=func_get_args();return new Sometimes('form',$a);}
-function label(){$a=func_get_args();return new Sometimes('label',$a);}
-function input(){$a=func_get_args();return new Sometimes('input',$a);}
-function textarea(){$a=func_get_args();return new Sometimes('textarea',$a);}
-function select(){$a=func_get_args();return new Sometimes('select',$a);}
-function option(){$a=func_get_args();return new Sometimes('option',$a);}
-function hr(){$a=func_get_args();return new Sometimes('hr',$a);}
-function br(){$a=func_get_args();return new Sometimes('br',$a);}
-function img(){$a=func_get_args();return new Sometimes('img',$a);}
-function table(){$a=func_get_args();return new Sometimes('table',$a);}
-function tr(){$a=func_get_args();return new Sometimes('tr',$a);}
-function th(){$a=func_get_args();return new Sometimes('th',$a);}
-function td(){$a=func_get_args();return new Sometimes('td',$a);}
 
 
 
