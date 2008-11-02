@@ -359,7 +359,8 @@ function td(){$a=func_get_args();return new Sometimes('td',$a);}
 
 
 # A test, if run from the command line via `php sometimes.php`
-if ('cli' == php_sapi_name()) {
+if ('cli' == php_sapi_name() && is_array($argv)
+	&& preg_match('!/' . basename(__FILE__) . '$!', realpath($argv[0]))) {
 
 	# For the test, use templates in this directory
 	$GLOBALS['SOMETIMES_TEMPLATEDIR'] = dirname(__FILE__);
