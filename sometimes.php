@@ -42,6 +42,12 @@ class Sometimes {
 	protected $attrs = array();
 	protected $conditions = array();
 	protected $content = array();
+	protected $parent = null;
+
+	# So that any DOM-ish query doesn't have to walk the entire tree, keep
+	# references by id and class attributes
+	static $id = array();
+	static $class = array();
 
 	# A Sometimes node has some attributes and some content
 	#   The first argument is the name of the node ('h1', 'div', etc)
@@ -59,8 +65,19 @@ class Sometimes {
 			} else if ($arg instanceof SometimesCondition) {
 				$this->conditions[$arg->key] = $arg->value;
 			}
-			#else if ($arg instanceof Sometimes) {  }
-			else { $this->content[] = $arg; }
+			else if ($arg instanceof Sometimes) {
+				$arg->parent =& $this;
+				$this->content[] = $arg;
+			} else { $this->content[] = $arg; }
+		}
+		if (isset($this->attrs['id'])) {
+			self::$id[$this->attrs['id']] =& $this;
+		}
+		if (isset($this->attrs['class'])) {
+			$classes = explode(' ', $this->attrs['class']);
+			foreach ($classes as $c) {
+				self::$class[$c][] =& $this;
+			}
 		}
 	}
 
@@ -90,10 +107,18 @@ class Sometimes {
 	}
 	public function conditions() { return $this->conditions; }
 
-	# Follow the XPath expression down the tree
-	#   Not sure if this'll be necessary and the accessors are only
-	#   really useful if this is implemented
-	public function xpath($expr) { return null; }
+	# DOM-ish querying of the tree
+	public function getElementById($id) {
+		return isset(self::$id[$id]) ? self::$id[$id] : null;
+	}
+	public function getElementsByClassName($class) {
+		return isset(self::$class[$class]) ? self::$class[$class] : array();
+	}
+	public function getElementsByTagName($tag) {
+		# TODO
+		return array();
+	}
+	public function parentNode() { return $this->parent; }
 
 	# Test output conditions
 	protected function conditions_met($args, &$these = false) {
